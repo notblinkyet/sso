@@ -1,6 +1,11 @@
 package config
 
-import "time"
+import (
+	"os"
+	"time"
+
+	"gopkg.in/yaml.v3"
+)
 
 type Config struct {
 	Env          string  `yaml:"env"`
@@ -27,4 +32,19 @@ type Cache struct {
 type Grpc struct {
 	Port    int           `yaml:"port"`
 	Timeout time.Duration `yaml:"timeout"`
+}
+
+func MustLoadConfig(filePath string) *Config {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		panic(err)
+	}
+
+	var config Config
+	err = yaml.Unmarshal(data, &config)
+	if err != nil {
+		panic(err)
+	}
+
+	return &config
 }

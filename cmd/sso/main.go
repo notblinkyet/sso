@@ -1,10 +1,31 @@
 package main
 
+import (
+	"log/slog"
+	"os"
+
+	"github.com/notblinkyet/sso/internal/config"
+	"github.com/notblinkyet/sso/internal/lib/logger/handlers/slogpretty"
+)
+
+const (
+	local    = "/home/hobonail/go_projects/sso_project/sso/config/local.yaml"
+	envLocal = "local"
+	envProd  = "prod"
+	envDev   = "dev"
+)
+
 func main() {
 
 	// TODO: Read configuration from yaml file
 
+	config := config.MustLoadConfig(local)
+
 	// TODO: Init logger
+
+	logger := setupLogger(config.Env)
+
+	logger.Info("Application started")
 
 	// TODO: Create application
 
@@ -12,4 +33,35 @@ func main() {
 
 	// TODO: Graceful shutdown
 
+}
+
+func setupLogger(env string) *slog.Logger {
+	var log *slog.Logger
+
+	switch env {
+	case envLocal:
+		log = setupPrettySlog()
+	case envDev:
+		log = slog.New(
+			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
+		)
+	case envProd:
+		log = slog.New(
+			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
+		)
+	}
+
+	return log
+}
+
+func setupPrettySlog() *slog.Logger {
+	opts := slogpretty.PrettyHandlerOptions{
+		SlogOpts: &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		},
+	}
+
+	handler := opts.NewPrettyHandler(os.Stdout)
+
+	return slog.New(handler)
 }

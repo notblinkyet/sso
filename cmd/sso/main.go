@@ -9,7 +9,6 @@ import (
 )
 
 const (
-	local    = "/home/hobonail/go_projects/sso_project/sso/config/local.yaml"
 	envLocal = "local"
 	envProd  = "prod"
 	envDev   = "dev"
@@ -19,7 +18,7 @@ func main() {
 
 	// TODO: Read configuration from yaml file
 
-	config := config.MustLoadConfig(local)
+	config := config.MustLoad()
 
 	// TODO: Init logger
 

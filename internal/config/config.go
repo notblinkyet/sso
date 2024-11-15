@@ -34,8 +34,8 @@ type Grpc struct {
 	Timeout time.Duration `yaml:"timeout"`
 }
 
-func MustLoadConfig(filePath string) *Config {
-	data, err := os.ReadFile(filePath)
+func MustLoad() *Config {
+	data, err := os.ReadFile(os.Getenv("CONFIG_PATH"))
 	if err != nil {
 		panic(err)
 	}

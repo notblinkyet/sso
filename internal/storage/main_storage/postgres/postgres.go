@@ -4,24 +4,31 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/notblinkyet/sso/internal/models"
 )
 
 type Postgres struct {
-	conn *pgx.Conn
+	pool *pgxpool.Pool
 }
 
 func NewPostgres(ctx context.Context, host, port, database, username, password string) (*Postgres, error) {
 
 	connStr := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=disable", host, port, database, username, password)
 
-	conn, err := pgx.Connect(ctx, connStr)
+	cfg, err := pgxpool.ParseConfig(connStr)
 
 	if err != nil {
 		return nil, err
 	}
-	return &Postgres{conn: conn}, nil
+
+	pool, err := pgxpool.ConnectConfig(ctx, cfg)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &Postgres{pool: pool}, nil
 }
 
 func (p *Postgres) SaveUser(ctx context.Context, email string, passHash []byte) (int64, error) {
@@ -31,7 +38,7 @@ func (p *Postgres) SaveUser(ctx context.Context, email string, passHash []byte) 
         RETURNING id;
     `
 	var id int64
-	err := p.conn.QueryRow(ctx, query, email, passHash).Scan(&id)
+	err := p.pool.QueryRow(ctx, query, email, passHash).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -50,7 +57,7 @@ func (p *Postgres) User(ctx context.Context, email string) (models.User, error) 
 		WHERE email=$1
     `
 
-	err := p.conn.QueryRow(ctx, query, email).Scan(id, passHash)
+	err := p.pool.QueryRow(ctx, query, email).Scan(&id, &passHash)
 
 	return models.User{
 		Id:       id,
@@ -71,7 +78,7 @@ func (p *Postgres) App(ctx context.Context, id int) (models.App, error) {
 		WHERE id = $1
 	`
 
-	err := p.conn.QueryRow(ctx, query, id).Scan(name, secret)
+	err := p.pool.QueryRow(ctx, query, id).Scan(&name, &secret)
 
 	return models.App{
 		ID:     id,
@@ -81,14 +88,14 @@ func (p *Postgres) App(ctx context.Context, id int) (models.App, error) {
 }
 
 func (p *Postgres) IsAdmin(ctx context.Context, userID int64) (bool, error) {
-	var IsAdmin bool
+	var isAdmin bool
 
 	query := `
-		SELECT isadmin FROM user
+		SELECT is_admin FROM user
 		WHERE id=$1
 	`
 
-	err := p.conn.QueryRow(ctx, query, userID).Scan(&IsAdmin)
+	err := p.pool.QueryRow(ctx, query, userID).Scan(&isAdmin)
 
-	return IsAdmin, err
+	return isAdmin, err
 }

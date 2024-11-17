@@ -83,7 +83,7 @@ func (s serverApi) Register(ctx context.Context, in *ssov1.RegisterRequest) (*ss
 
 	if err != nil {
 
-		if errors.Is(err, storage.ErrUserExists) {
+		if errors.Is(err, storage.ErrLoginExists) {
 			return nil, status.Error(codes.AlreadyExists, "login already exists")
 		}
 

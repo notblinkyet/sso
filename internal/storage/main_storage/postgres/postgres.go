@@ -36,29 +36,29 @@ func NewPostgres(ctx context.Context, host, port, database, username, password s
 	return &Postgres{pool: pool}, nil
 }
 
-func (p *Postgres) SaveUser(ctx context.Context, email string, passHash []byte) (int64, error) {
+func (p *Postgres) SaveUser(ctx context.Context, login string, passHash []byte) (int64, error) {
 
 	const op = "storage.main_storage.postgres.SaveUser"
 
 	query := `
-        INSERT INTO users (email, pass_hash)
+        INSERT INTO users (login, pass_hash)
         VALUES ($1, $2)
         RETURNING id;
     `
 	var id int64
-	err := p.pool.QueryRow(ctx, query, email, passHash).Scan(&id)
+	err := p.pool.QueryRow(ctx, query, login, passHash).Scan(&id)
 	if err != nil {
 		var pgErr pgx.PgError
 
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return 0, fmt.Errorf("%s: %w", op, storage.ErrUserExists)
+			return 0, fmt.Errorf("%s: %w", op, storage.ErrLoginExists)
 		}
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 	return id, nil
 }
 
-func (p *Postgres) User(ctx context.Context, email string) (models.User, error) {
+func (p *Postgres) User(ctx context.Context, login string) (models.User, error) {
 
 	const op = "storage.main_storage.postgres.User"
 
@@ -73,14 +73,14 @@ func (p *Postgres) User(ctx context.Context, email string) (models.User, error) 
 		WHERE email=$1
     `
 
-	err := p.pool.QueryRow(ctx, query, email).Scan(&id, &passHash)
+	err := p.pool.QueryRow(ctx, query, login).Scan(&id, &passHash)
 
 	if err != nil {
 
 		return models.User{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return *models.NewUser(id, email, passHash), nil
+	return *models.NewUser(id, login, passHash), nil
 }
 
 func (p *Postgres) App(ctx context.Context, id int) (models.App, error) {

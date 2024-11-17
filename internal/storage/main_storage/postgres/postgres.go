@@ -58,7 +58,7 @@ func (p *Postgres) SaveUser(ctx context.Context, login string, passHash []byte) 
 	return id, nil
 }
 
-func (p *Postgres) User(ctx context.Context, login string) (models.User, error) {
+func (p *Postgres) User(ctx context.Context, login string) (*models.User, error) {
 
 	const op = "storage.main_storage.postgres.User"
 
@@ -77,13 +77,17 @@ func (p *Postgres) User(ctx context.Context, login string) (models.User, error) 
 
 	if err != nil {
 
-		return models.User{}, fmt.Errorf("%s: %w", op, err)
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("%s: %w", op, storage.ErrUserNotFound)
+		}
+
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return *models.NewUser(id, login, passHash), nil
+	return models.NewUser(id, login, passHash), nil
 }
 
-func (p *Postgres) App(ctx context.Context, id int) (models.App, error) {
+func (p *Postgres) App(ctx context.Context, id int) (*models.App, error) {
 
 	const op = "storage.main_storage.postgres.app"
 
@@ -100,10 +104,15 @@ func (p *Postgres) App(ctx context.Context, id int) (models.App, error) {
 	err := p.pool.QueryRow(ctx, query, id).Scan(&name, &secret)
 
 	if err != nil {
-		return models.App{}, fmt.Errorf("%s: %w", op, err)
+
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("%s: %w", op, storage.ErrAppNotFound)
+		}
+
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return *models.NewApp(id, name, secret), nil
+	return models.NewApp(id, name, secret), nil
 }
 
 func (p *Postgres) IsAdmin(ctx context.Context, userID int64) (bool, error) {
@@ -120,6 +129,11 @@ func (p *Postgres) IsAdmin(ctx context.Context, userID int64) (bool, error) {
 	err := p.pool.QueryRow(ctx, query, userID).Scan(&isAdmin)
 
 	if err != nil {
+
+		if err == pgx.ErrNoRows {
+			return false, fmt.Errorf("%s: %w", op, storage.ErrUserNotFound)
+		}
+
 		return false, fmt.Errorf("%s: %w", op, err)
 	}
 

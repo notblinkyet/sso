@@ -26,7 +26,7 @@ func main() {
 
 	logger.Info("", slog.Any("config", config))
 
-	logger.Info("Application started")
+	logger.Info("Success read config and setup logger")
 
 	// TODO: Create application
 

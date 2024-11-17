@@ -5,3 +5,11 @@ type User struct {
 	Email    string
 	PassHash []byte
 }
+
+func NewUser(id int64, email string, passHash []byte) *User {
+	return &User{
+		Id:       id,
+		Email:    email,
+		PassHash: passHash,
+	}
+}

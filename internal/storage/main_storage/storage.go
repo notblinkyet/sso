@@ -2,9 +2,13 @@ package storage
 
 import (
 	"context"
+	"errors"
 
 	models "github.com/notblinkyet/sso/internal/models"
-	"github.com/notblinkyet/sso/internal/storage/main_storage/postgres"
+)
+
+var (
+	ErrUserExists = errors.New("user already exists")
 )
 
 type Storage interface {
@@ -12,11 +16,4 @@ type Storage interface {
 	User(ctx context.Context, email string) (models.User, error)
 	App(ctx context.Context, id int) (models.App, error)
 	IsAdmin(ctx context.Context, userID int64) (bool, error)
-}
-
-func main() {
-	var s Storage
-	s, err := postgres.NewPostgres(context.Background(), "", "", "", "", "")
-	_ = s
-	_ = err
 }

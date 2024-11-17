@@ -24,6 +24,8 @@ func main() {
 
 	logger := setupLogger(config.Env)
 
+	logger.Info("", slog.Any("config", config))
+
 	logger.Info("Application started")
 
 	// TODO: Create application

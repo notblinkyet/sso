@@ -5,5 +5,3 @@ Taskfile.yaml
 prod.yaml
 .gitignore
 .dockerignore
-Dockerfile.app
-Dockerfile.migrator

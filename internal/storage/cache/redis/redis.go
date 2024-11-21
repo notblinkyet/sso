@@ -2,10 +2,14 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/notblinkyet/sso/internal/config"
+	"github.com/notblinkyet/sso/internal/models"
 	"github.com/notblinkyet/sso/internal/storage/cache"
 )
 
@@ -32,19 +36,34 @@ func NewRedis(addr string, password string, db int) (*Redis, error) {
 	}, nil
 }
 
-func (r *Redis) SetUser(ctx context.Context, login string, passHash []byte, expiration time.Duration) error {
+func NewRedisFromConfig(config *config.Config) (*Redis, error) {
+	return NewRedis(fmt.Sprintf("%s:%d", config.Cache.Host, config.Cache.Port), os.Getenv("REDIS_PASS"), config.Cache.DB)
+}
+
+func (r *Redis) SetUser(ctx context.Context, login string, passHash []byte, id int64, expiration time.Duration) error {
 
 	const op = "storage.cache.redis.SetUser"
 
-	status := r.client.Set(ctx, login, string(passHash), expiration)
+	user := models.NewUser(id, login, passHash)
 
-	if status.Err() != nil {
-		return fmt.Errorf("%s: %w", op, status.Err())
+	jsonData, err := json.Marshal(user)
+
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
 	}
+
+	err = r.client.Set(ctx, login, jsonData, expiration).Err()
+
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
 	return nil
 }
 
-func (r *Redis) GetUser(ctx context.Context, login string) ([]byte, error) {
+func (r *Redis) GetUser(ctx context.Context, login string) (*models.User, error) {
+
+	var user models.User
 
 	const op = "storage.cache.redis.GetUser"
 
@@ -55,5 +74,12 @@ func (r *Redis) GetUser(ctx context.Context, login string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-	return []byte(res), nil
+
+	err = json.Unmarshal([]byte(res), &user)
+
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return &user, nil
 }

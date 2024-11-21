@@ -3,6 +3,7 @@ package authgrpc
 import (
 	"context"
 	"errors"
+	"time"
 
 	ssov1 "github.com/notblinkyet/proto_sso/gen/go/sso"
 	"github.com/notblinkyet/sso/internal/services/auth"
@@ -16,60 +17,23 @@ type Auth interface {
 	Register(ctx context.Context, login, password string) (int64, error)
 	Login(ctx context.Context, login string, password string, appID int) (string, error)
 	IsAdmin(ctx context.Context, userID int64) (bool, error)
-	Logout(ctx context.Context, token string) (bool, error)
 }
 
 type serverApi struct {
 	ssov1.UnimplementedAuthServer
-	auth Auth
+	auth    Auth
+	timeout time.Duration
 }
 
-func Register(gRRPCserver *grpc.Server, auth Auth) {
-	ssov1.RegisterAuthServer(gRRPCserver, serverApi{auth: auth})
-}
-
-// IsAdmin implements ssov1.AuthServer.
-func (s serverApi) IsAdmin(ctx context.Context, in *ssov1.IsAdminRequest) (*ssov1.IsAdminResponse, error) {
-
-	if in.UserId == 0 {
-		return nil, status.Error(codes.InvalidArgument, "userId is required")
-	}
-	isAdmin, err := s.auth.IsAdmin(ctx, in.UserId)
-
-	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to get info about rules")
-	}
-
-	return &ssov1.IsAdminResponse{IsAdmin: isAdmin}, nil
-}
-
-// Login implements ssov1.AuthServer.
-func (s serverApi) Login(ctx context.Context, in *ssov1.LoginRequest) (*ssov1.LoginResponse, error) {
-	token, err := s.auth.Login(ctx, in.Login, in.Password, int(in.AppId))
-
-	if err != nil {
-		if errors.Is(err, auth.ErrInvalidCredentials) {
-			return nil, status.Error(codes.InvalidArgument, "invalid login or password")
-		}
-		return nil, status.Error(codes.Internal, "failed to login")
-	}
-
-	return &ssov1.LoginResponse{Token: token}, nil
-}
-
-// Logout implements ssov1.AuthServer.
-func (s serverApi) Logout(ctx context.Context, in *ssov1.LogoutRequest) (*ssov1.LogoutResponse, error) {
-	success, err := s.auth.Logout(ctx, in.Token)
-
-	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to logout")
-	}
-
-	return &ssov1.LogoutResponse{Success: success}, nil
+func Register(gRRPCserver *grpc.Server, auth Auth, timeout time.Duration) {
+	ssov1.RegisterAuthServer(gRRPCserver, serverApi{auth: auth, timeout: timeout})
 }
 
 // Register implements ssov1.AuthServer.
 func (s serverApi) Register(ctx context.Context, in *ssov1.RegisterRequest) (*ssov1.RegisterResponse, error) {
+
+	ctx, cancelCtx := context.WithTimeout(ctx, s.timeout)
+	defer cancelCtx()
 
 	if in.Login == "" {
 		return nil, status.Error(codes.InvalidArgument, "login is required")
@@ -90,7 +54,59 @@ func (s serverApi) Register(ctx context.Context, in *ssov1.RegisterRequest) (*ss
 		return nil, status.Error(codes.Internal, "failed to register")
 	}
 
-	return &ssov1.RegisterResponse{
-		UserId: uid,
-	}, nil
+	select {
+	case <-ctx.Done():
+		return nil, status.Error(codes.DeadlineExceeded, ctx.Err().Error())
+	default:
+		return &ssov1.RegisterResponse{
+			UserId: uid,
+		}, nil
+	}
+}
+
+// Login implements ssov1.AuthServer.
+func (s serverApi) Login(ctx context.Context, in *ssov1.LoginRequest) (*ssov1.LoginResponse, error) {
+
+	ctx, cancelCtx := context.WithTimeout(ctx, s.timeout)
+	defer cancelCtx()
+
+	token, err := s.auth.Login(ctx, in.Login, in.Password, int(in.AppId))
+
+	if err != nil {
+		if errors.Is(err, auth.ErrInvalidCredentials) {
+			return nil, status.Error(codes.InvalidArgument, "invalid login or password")
+		}
+		return nil, status.Error(codes.Internal, "failed to login")
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, status.Error(codes.DeadlineExceeded, ctx.Err().Error())
+	default:
+		return &ssov1.LoginResponse{Token: token}, nil
+	}
+}
+
+// IsAdmin implements ssov1.AuthServer.
+func (s serverApi) IsAdmin(ctx context.Context, in *ssov1.IsAdminRequest) (*ssov1.IsAdminResponse, error) {
+
+	ctx, cancelCtx := context.WithTimeout(ctx, s.timeout)
+	defer cancelCtx()
+
+	if in.UserId == 0 {
+		return nil, status.Error(codes.InvalidArgument, "userId is required")
+	}
+	isAdmin, err := s.auth.IsAdmin(ctx, in.UserId)
+
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to get info about rules")
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, status.Error(codes.DeadlineExceeded, ctx.Err().Error())
+	default:
+		return &ssov1.IsAdminResponse{IsAdmin: isAdmin}, nil
+	}
+
 }

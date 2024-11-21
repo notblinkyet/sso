@@ -2,11 +2,13 @@ package postgres
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"os"
 
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/notblinkyet/sso/internal/config"
 	"github.com/notblinkyet/sso/internal/models"
 	storage "github.com/notblinkyet/sso/internal/storage/main_storage"
 )
@@ -15,11 +17,11 @@ type Postgres struct {
 	pool *pgxpool.Pool
 }
 
-func NewPostgres(ctx context.Context, host, port, database, username, password string) (*Postgres, error) {
+func NewPostgres(ctx context.Context, host, database, username, password string, port int) (*Postgres, error) {
 
 	const op = "storage.main_storage.postgres.NewPostgres"
 
-	connStr := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=disable", host, port, database, username, password)
+	connStr := fmt.Sprintf("host=%s port=%d dbname=%s user=%s password=%s sslmode=disable", host, port, database, username, password)
 
 	cfg, err := pgxpool.ParseConfig(connStr)
 
@@ -36,21 +38,27 @@ func NewPostgres(ctx context.Context, host, port, database, username, password s
 	return &Postgres{pool: pool}, nil
 }
 
+func NewPostgresFromConfig(config *config.Config) (*Postgres, error) {
+	return NewPostgres(context.Background(), config.Storage.Host, config.Storage.Database,
+		config.Storage.Username, os.Getenv("POSTGRES_PASS"), config.Storage.Port)
+}
+
 func (p *Postgres) SaveUser(ctx context.Context, login string, passHash []byte) (int64, error) {
 
 	const op = "storage.main_storage.postgres.SaveUser"
 
 	query := `
-        INSERT INTO users (login, pass_hash)
+        INSERT INTO users ("login", pass_hash)
         VALUES ($1, $2)
         RETURNING id;
     `
 	var id int64
 	err := p.pool.QueryRow(ctx, query, login, passHash).Scan(&id)
 	if err != nil {
-		var pgErr pgx.PgError
 
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		pgErr, ok := err.(*pgconn.PgError)
+
+		if ok && pgErr.Code == "23505" {
 			return 0, fmt.Errorf("%s: %w", op, storage.ErrLoginExists)
 		}
 		return 0, fmt.Errorf("%s: %w", op, err)
@@ -70,7 +78,7 @@ func (p *Postgres) User(ctx context.Context, login string) (*models.User, error)
 	query := `
         SELECT id, pass_hash
 		FROM users
-		WHERE email=$1
+		WHERE "login"=$1
     `
 
 	err := p.pool.QueryRow(ctx, query, login).Scan(&id, &passHash)
@@ -97,7 +105,7 @@ func (p *Postgres) App(ctx context.Context, id int) (*models.App, error) {
 	)
 
 	query := `
-		SELECT name, secret FROM app
+		SELECT "name", "secret" FROM apps
 		WHERE id = $1
 	`
 
@@ -122,7 +130,7 @@ func (p *Postgres) IsAdmin(ctx context.Context, userID int64) (bool, error) {
 	var isAdmin bool
 
 	query := `
-		SELECT is_admin FROM user
+		SELECT is_admin FROM users
 		WHERE id=$1
 	`
 

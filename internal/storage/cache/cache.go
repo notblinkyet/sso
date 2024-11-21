@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/notblinkyet/sso/internal/models"
 )
@@ -12,6 +13,6 @@ var (
 )
 
 type Cache interface {
-	SetUser(ctx context.Context, login string, passHash []byte) error
-	GetUser(ctx context.Context, login string) (models.User, error)
+	SetUser(ctx context.Context, login string, passHash []byte, id int64, expiration time.Duration) error
+	GetUser(ctx context.Context, login string) (*models.User, error)
 }

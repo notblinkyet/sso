@@ -1,15 +1,15 @@
 package models
 
 type User struct {
-	Id       int64
-	Email    string
-	PassHash []byte
+	Login    string `json:"login"`
+	PassHash []byte `json:"passHash"`
+	ID       int64  `json:"id"`
 }
 
-func NewUser(id int64, email string, passHash []byte) *User {
+func NewUser(id int64, login string, passHash []byte) *User {
 	return &User{
-		Id:       id,
-		Email:    email,
+		ID:       id,
+		Login:    login,
 		PassHash: passHash,
 	}
 }

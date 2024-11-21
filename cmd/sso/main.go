@@ -3,15 +3,12 @@ package main
 import (
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 
+	"github.com/notblinkyet/sso/internal/app"
 	"github.com/notblinkyet/sso/internal/config"
-	"github.com/notblinkyet/sso/internal/lib/logger/handlers/slogpretty"
-)
-
-const (
-	envLocal = "local"
-	envProd  = "prod"
-	envDev   = "dev"
+	"github.com/notblinkyet/sso/internal/logger"
 )
 
 func main() {
@@ -22,7 +19,7 @@ func main() {
 
 	// TODO: Init logger
 
-	logger := setupLogger(config.Env)
+	logger := logger.SetupLogger(config.Env)
 
 	logger.Info("", slog.Any("config", config))
 
@@ -30,39 +27,18 @@ func main() {
 
 	// TODO: Create application
 
-	// TODO: Start application
+	app := app.New(logger, config)
 
-	// TODO: Graceful shutdown
+	go func() {
+		app.GRPCServer.MustRun()
+	}()
 
-}
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
 
-func setupLogger(env string) *slog.Logger {
-	var log *slog.Logger
+	<-stop
 
-	switch env {
-	case envLocal:
-		log = setupPrettySlog()
-	case envDev:
-		log = slog.New(
-			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
-		)
-	case envProd:
-		log = slog.New(
-			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
-		)
-	}
+	app.GRPCServer.Stop()
+	logger.Info("Gracefull stopped")
 
-	return log
-}
-
-func setupPrettySlog() *slog.Logger {
-	opts := slogpretty.PrettyHandlerOptions{
-		SlogOpts: &slog.HandlerOptions{
-			Level: slog.LevelDebug,
-		},
-	}
-
-	handler := opts.NewPrettyHandler(os.Stdout)
-
-	return slog.New(handler)
 }

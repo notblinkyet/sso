@@ -1,2 +1,9 @@
 config/local.yaml
+config/remote.yaml
 build.sh
+Taskfile.yaml
+prod.yaml
+.gitignore
+.dockerignore
+Dockerfile.app
+Dockerfile.migrator

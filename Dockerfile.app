@@ -3,7 +3,7 @@ FROM golang:latest
 RUN mkdir /app
 WORKDIR /app
 ENV CONFIG_PATH=./config/remote.yaml
-ENV POSTGRES_PASS=12345pass
+ENV POSTGRES_PASS=admin
 ENV REDIS_PASS=admin
 
 COPY go.mod go.sum ./

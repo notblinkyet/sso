@@ -1,0 +1,20 @@
+env: "local" # dev/prod
+migrations_path: "/home/hobonail/go_projects/sso_project/sso/migrations"
+tokenTTL: 1h
+
+storage:
+  type: "postgres" # "mysql", "mongodb"
+  host: "localhost"
+  port: 5432
+  username: "postgres"
+  dbname: "sso"
+
+cache:
+  driver: "redis"
+  host: "localhost"
+  port: 6379
+  db: 0
+
+grpc:
+  port: 44044
+  timeout: 5s

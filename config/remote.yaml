@@ -1,0 +1,20 @@
+env: "prod" # dev/prod/local
+migrations_path: "./migrations"
+tokenTTL: 1h
+
+storage:
+  type: "postgres" # "mysql", "mongodb"
+  host: "my-psql"
+  port: 5432
+  username: "admin"
+  dbname: "sso"
+
+cache:
+  driver: "redis"
+  host: "my-redis"
+  port: 6379
+  db: 0
+
+grpc:
+  port: 44044
+  timeout: 5s
